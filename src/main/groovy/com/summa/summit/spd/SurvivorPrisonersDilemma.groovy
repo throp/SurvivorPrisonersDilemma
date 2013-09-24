@@ -12,16 +12,21 @@ public class SurvivorPrisonersDilemma {
     players << new MrNiceGuy() << new JoeEvil() << new RupertRandom() << new BobBackstabber()
   }
 
+  void initPlayerFiles() {
+    playerFiles = [:]
+    players.each { p ->
+      def file = new File("output/${p.getName()}.log")
+      playerFiles << [(p.getName()) : new groovy.io.GroovyPrintStream(file)] 
+    }
+  }
+
   void initPlayerLists() { 
     playerScores = [:]
     playerOpponents = [:]
-    playerFiles = [:]
     players.each { p ->
       playerScores[p.getName()] = 0
       playerOpponents[p.getName()] = []
       p.onNewRound(gamesPerRound)
-      def file = new File("output/${p.getName()}.log")
-      playerFiles << [(p.getName()) : new groovy.io.GroovyPrintStream(file)] 
     }
   }
 
@@ -35,10 +40,12 @@ public class SurvivorPrisonersDilemma {
     playerFiles[p2.getName()].printf s list
   }
 
-  String play(int roundNum) { 
-
-    println "\n\nROUND ${roundNum}"
-    println "-" * 45
+  Set<String> play(int roundNum) { 
+    
+    println "\n\n"
+    println "*" * 45
+    println "* ROUND ${roundNum}"
+    println "*" * 45
 
     initPlayerLists()
 
@@ -47,12 +54,8 @@ public class SurvivorPrisonersDilemma {
       def opponents = []
 
       players.each { p2 ->
-        if(p1.getName() == p2.getName()) { 
-          return
-        }
-        if(playerOpponents[p2.getName()].contains(p1.getName())) { 
-          return
-        }
+        if(p1.getName() == p2.getName()) return
+        if(playerOpponents[p2.getName()].contains(p1.getName())) return
 
         opponents << p2.getName()
 
@@ -106,30 +109,27 @@ public class SurvivorPrisonersDilemma {
     println "\n\nSCORES"
     println "-" * 9 * 5
 
-    playerScores.sort { it.value }
-    int max = 0
-    String roundWinner = ""
-    playerScores.each { k, v -> 
-      println "${k}: ${v}"
-      if(v > max) { 
-        max = v
-        roundWinner = k
-      }
+    playerScores.sort { it.value }.each { k, v -> println "${k}: ${v} "}
+    int max = playerScores.max { it.value }.value
+    def roundWinners = []
+    playerScores.each { k, v ->
+      if(v == max) roundWinners << k
     }
 
-    return roundWinner
+    return roundWinners
   }
 
   String getDecisionCode(Decision decision) { 
     return decision.toString().substring(0, 1)
   }
 
-  void voteOffIsland(String roundWinner) {
+  void voteOffIsland(Set<String> roundWinners) {
     def votes = [:]
     players.each { p ->
       votes << [(p.getName()) : 0]
     }
 
+    // Figure out who everyone voted off the island
     players.each { p -> 
       String votee = p.voteOffIsland()
       if(votee != null && votee != '' && votes[votee] != null) { 
@@ -137,26 +137,42 @@ public class SurvivorPrisonersDilemma {
       }
     }
 
+    // Make the winners exempt from voting off the island
     println "\n\nVOTES"
     println "-" * 45
-    println "${roundWinner}: ${votes[roundWinner]} (exempt)"
-    votes.remove(roundWinner)
+    roundWinners.each { roundWinner ->
+      println "${roundWinner}: ${votes[roundWinner]} (exempt)"
+      votes.remove(roundWinner)
+    }
+    
+    // If everyone tied and no more people to vote off, then declare the winner!
+    if(votes.isEmpty()) { 
+      println "\n\nWINNERS: ${roundWinners}"
+      players = []
+      return
+    }
+
+    // Vote people off the island!
     def voteOffs = [:]
     def maxVotes = votes.max { it.value }.value
-    votes.each { k, v -> 
+    votes.sort{ it.value }.each { k, v -> 
       println "${k}: ${v}" 
       if(v == maxVotes) voteOffs << [(k) : playerScores[k]]
     }
 
     def votedOff = voteOffs.max { it.value }.key
 
-
-    println "\n\nRound Winner: ${roundWinner}"
+    // Print out the round summary stuff - round winners and voted off
+    println "\n"
+    roundWinners.each { roundWinner ->
+      println "Round Winner: ${roundWinner}"
+    }
     println "Voted Off: ${votedOff}"
 
+    // Set up the players for next round (excluding the guy who got voted off)
     def nextRoundPlayers = []
     players.each { p ->
-      if(p.getName() == roundWinner || p.getName() != votedOff) {
+      if(roundWinners.contains(p.getName()) || p.getName() != votedOff) {
         nextRoundPlayers << p
       } 
     }
@@ -203,6 +219,7 @@ public class SurvivorPrisonersDilemma {
         setSurvivorMode()
         break
       case "5":
+        initPlayerFiles()
         if(!survivorMode) play(1)
         else {        
           for(int i=1; players.size() > 1; i++) { 
