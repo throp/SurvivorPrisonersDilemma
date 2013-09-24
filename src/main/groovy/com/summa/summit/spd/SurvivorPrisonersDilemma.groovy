@@ -2,6 +2,9 @@ package com.summa.summit.spd
 
 public class SurvivorPrisonersDilemma { 
   def players = []
+  def playerScores = [:]
+  def playerFiles = [:]
+  def playerOpponents = [:]
   def gamesPerRound = 10
   def survivorMode = false
 
@@ -9,18 +12,35 @@ public class SurvivorPrisonersDilemma {
     players << new MrNiceGuy() << new JoeEvil() << new RupertRandom() << new BobBackstabber()
   }
 
+  void initPlayerLists() { 
+    playerScores = [:]
+    playerOpponents = [:]
+    playerFiles = [:]
+    players.each { p ->
+      playerScores[p.getName()] = 0
+      playerOpponents[p.getName()] = []
+      p.onNewRound(gamesPerRound)
+      def file = new File("output/${p.getName()}.log")
+      playerFiles << [(p.getName()) : new groovy.io.GroovyPrintStream(file)] 
+    }
+  }
+
+  void log(Player p1, Player p2, String out) { 
+    playerFiles[p1.getName()].println out
+    playerFiles[p2.getName()].println out
+  }
+
+  void log(Player p1, Player p2, String s, List list) { 
+    playerFiles[p1.getName()].printf s list
+    playerFiles[p2.getName()].printf s list
+  }
+
   String play(int roundNum) { 
 
     println "\n\nROUND ${roundNum}"
     println "-" * 45
 
-    def playerScores = [:]
-    def playerOpponents = [:]
-    players.each { p ->
-      playerScores[p.getName()] = 0
-      playerOpponents[p.getName()] = []
-      p.onNewRound(gamesPerRound)
-    }
+    initPlayerLists()
 
     players.each { p1 ->
 
@@ -42,11 +62,15 @@ public class SurvivorPrisonersDilemma {
         int p1TotalScore = 0
         int p2TotalScore = 0
         def games = 1..gamesPerRound
-        println "\n\n${p1.name} (P1) vs. ${p2.name} (P2)\n"
+        log(p1, p2, "\n\nROUND ${roundNum} - ${p1.name} (P1) vs. ${p2.name} (P2)\n")
         def header = ["Game", "P1 Dec", "P2 Dec", "P1 Score", "P2 Score"]
-        header.each { printf "%-9s", [it]}
-        println ""
-        println "-" * 9 * 5
+        header.each { 
+          playerFiles[p1.getName()].printf "%-9s", [it] 
+          playerFiles[p2.getName()].printf "%-9s", [it]
+        }
+        log(p1, p2, "")
+        log(p1, p2, "-" * 9 * 5)
+
         games.each { game ->
           Decision p1Decision = p1.play()
           Decision p2Decision = p2.play()
@@ -59,13 +83,19 @@ public class SurvivorPrisonersDilemma {
           p1TotalScore += p1Score
           p2TotalScore += p2Score
           def out = [game, p1DecisionCode, p2DecisionCode, p1Score, p2Score]
-          out.each { printf "%-9s", [it]}
-          println ""
+          out.each { 
+            playerFiles[p1.getName()].printf "%-9s", [it] 
+            playerFiles[p2.getName()].printf "%-9s", [it]
+          }
+          log(p1, p2, "")
         }
-        println "-" * 9 * 5
+        log(p1, p2, "-" * 9 * 5)
         def totals = ["", "", "", p1TotalScore, p2TotalScore]
-        totals.each { printf "%-9s", [it]}
-        println ""
+        totals.each { 
+          playerFiles[p1.getName()].printf "%-9s", [it] 
+          playerFiles[p2.getName()].printf "%-9s", [it]
+        }
+        log(p1, p2, "")
         playerScores[p1.getName()] += p1TotalScore
         playerScores[p2.getName()] += p2TotalScore
       }
@@ -111,9 +141,14 @@ public class SurvivorPrisonersDilemma {
     println "-" * 45
     println "${roundWinner}: ${votes[roundWinner]} (exempt)"
     votes.remove(roundWinner)
-    votes.each { k, v -> println "${k}: ${v}" }
+    def voteOffs = [:]
+    def maxVotes = votes.max { it.value }.value
+    votes.each { k, v -> 
+      println "${k}: ${v}" 
+      if(v == maxVotes) voteOffs << [(k) : playerScores[k]]
+    }
 
-    String votedOff = votes.max { it.value }.key
+    def votedOff = voteOffs.max { it.value }.key
 
 
     println "\n\nRound Winner: ${roundWinner}"
@@ -141,6 +176,8 @@ public class SurvivorPrisonersDilemma {
 
   public static void main(String [] args) { 
     def game = new SurvivorPrisonersDilemma()
+
+    args.each { game.addPlayer(it) }
 
     println "\nWELCOME TO SURVIVOR PRISONER'S DILEMMA!\n"
 
@@ -187,8 +224,11 @@ public class SurvivorPrisonersDilemma {
     println "-" * 45
     println "Type the fully qualified class name of the player (e.g. com.summa.summit.spd.MrNiceGuy)\n"
 
-    String playerClassName = System.console().readLine(">")
+    addPlayer(System.console().readLine(">"))
+    gameLoop()
+  }
 
+  void addPlayer(String playerClassName) { 
     try { 
       def newPlayer = Class.forName(playerClassName).newInstance()
       if(players.findAll { it.getName() == newPlayer.getName() }.size() > 0) { 
@@ -200,8 +240,6 @@ public class SurvivorPrisonersDilemma {
     catch(Exception e) { 
       println "Invalid class name! "
     }
-
-    gameLoop()
   }
 
   void printPlayers() { 
