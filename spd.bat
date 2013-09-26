@@ -1,5 +1,5 @@
 
-SET CLASSPATH=./build/libs/SurvivorPrisonersDilemma.jar
+SET CLASSPATH=./dist/spd.jar
 SET CLASSPATH=%CLASSPATH%;./dist/groovy.jar
 
 SET CLASSPATH=%CLASSPATH%;./dist/players/adamo-mosca/
