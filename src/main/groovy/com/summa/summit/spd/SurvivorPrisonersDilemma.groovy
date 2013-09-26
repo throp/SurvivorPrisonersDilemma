@@ -213,12 +213,15 @@ public class SurvivorPrisonersDilemma {
         addPlayer()
         break;
       case "3":
+        removePlayer()
+        break;
+      case "4":
         setNumGamesPerRound()
         break
-      case "4":
+      case "5":
         setSurvivorMode()
         break
-      case "5":
+      case "6":
         initPlayerFiles()
         if(!survivorMode) play(1)
         else {        
@@ -227,13 +230,32 @@ public class SurvivorPrisonersDilemma {
           }
         }
         break;
-      case "6":
+      case "7":
         System.exit(0)
       default:
         println "Invalid choice! "
         gameLoop()
     }
 
+  }
+
+  void removePlayer() {
+    println "\n\n REMOVE PLAYER"
+    println "-" * 45
+    println "Type the name of the player to remove\n"
+
+    def playerName = System.console().readLine(">")
+    def removePlayer = null
+    players.each { p ->
+      if(p.getName() == playerName) { 
+        removePlayer = p
+      }
+    }
+
+    if(removePlayer == null) println "No player ${playerName} exists!"
+    else players.remove(removePlayer)
+
+    gameLoop()
   }
 
   void addPlayer() { 
@@ -307,10 +329,11 @@ MAIN MENU
 -----------------------------
 1) View players
 2) Add players
-3) Set # games per round (current = ${gamesPerRound})
-4) Set survivor mode (current = ${survivorMode})
-5) Play!
-6) Exit
+3) Remove player
+4) Set # games per round (current = ${gamesPerRound})
+5) Set survivor mode (current = ${survivorMode})
+6) Play!
+7) Exit
 
 """
   }
